@@ -1,0 +1,16 @@
+
+.git
+.venv
+__pycache__
+*.pyc
+outputs
+notebooks
+*.ipynb_checkpoints
+*.log
+*.pkl
+*.joblib
+*.bin
+*.onnx
+data/raw
+data/processed
+  
