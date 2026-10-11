@@ -1,42 +1,34 @@
-# Methodology Passport Card
+# Methodology Passport Card — Task 2
 
 **Title:** Comparative Evaluation of Machine Learning Models for Phishing URL Detection  
 **Authors:** Gabdylshukir Dariyana and Zhanna  
-**GitHub:** https://github.com/dariyanagabdylshukir-crypto/phishing-url-ml-comparison
+**Repository:** https://github.com/dariyanagabdylshukir-crypto/phishing-url-ml-comparison
 
-## Research type
-Quantitative experimental study: controlled model comparisons use numerical
-classification and runtime measurements.
+## 1. Research type
+Quantitative experimental research. Four machine learning algorithms are compared using numerical detection metrics and runtime measurements under matched experimental conditions.
 
-## Hypotheses (based on Task 1)
-**RQ1** H0: Evaluated algorithms do not differ significantly in phishing-class F1-score.
-H1: At least one evaluated algorithm differs significantly in phishing-class F1-score.
+## 2. Hypotheses
+**RQ1 — Model choice:** H0: The evaluated algorithms do not differ significantly in phishing-class F1-score. H1: At least one algorithm differs significantly in phishing-class F1-score.
 
-**RQ2** H0: Feature selection does not significantly change phishing-class F1-score
-or inference time. H1: Feature selection significantly changes F1-score and/or inference time.
+**RQ2 — Feature selection:** H0: Full and selected feature sets do not differ significantly in phishing-class F1-score or inference time. H1: The feature sets differ significantly in F1-score and/or inference time.
 
-**RQ3** H0: Evaluated algorithms do not differ significantly in the joint
-F1-score/inference-time trade-off. H1: At least one algorithm has a significantly
-different F1-score/inference-time trade-off.
+**RQ3 — Performance-efficiency comparison:** H0: There is no statistically significant difference between algorithms in inference time when compared under the same experimental conditions. H1: At least one algorithm has significantly different inference time. F1-score is reported alongside inference time to describe the performance-efficiency trade-off; no separate significance claim is made about a composite trade-off score.
 
-## Variable matrix
-| Category | Variables |
+## 3. Variable matrix
+| Type | Variables |
 |---|---|
-| Independent | Model (Logistic Regression, Random Forest, SVM, XGBoost); feature set (full vs selected) |
-| Dependent | Accuracy, precision, recall, phishing F1; training time (ms); inference time (ms/URL) |
-| Controlled | Identical dataset and labels, stratified split, preprocessing, random seeds, evaluation protocol, fixed hardware/OS/library versions |
+| Independent | Algorithm: Logistic Regression, Random Forest, SVM, XGBoost; feature set: full (16 URL features) or selected (7 URL features). |
+| Dependent | Phishing-class F1-score, accuracy, precision, recall, training time (ms), inference latency (ms/URL). |
+| Controlled | Same labeled dataset, train/test split, preprocessing, evaluation protocol, seed, fixed software versions, OS/container environment and hardware during comparisons. |
 
-## Metrics and baseline
-**Primary:** phishing-class F1-score; balances precision and recall.
-**Secondary:** accuracy, precision, recall, training time, inference time (ms/URL).
-**Guardrails:** inference time <= 100 ms/URL and minimum phishing recall set before
-the full experiment (the smoke-test default is 0.0 and is not a meaningful recall bound).
-**Baseline:** Logistic Regression trained with the full URL feature set using the same split.
-**Experimental plan:** compare four models and two feature sets, with repeated runs.
-For the full study, use adequate held-out data and appropriate paired statistical tests
-with correction for multiple comparisons where needed.
+## 4. Metrics and baseline
+**Primary metric:** Phishing-class F1-score (positive label = 1). It balances precision and recall.
 
-## Week 6 implementation status
-The pipeline runs on 10 illustrative URLs and produces CSV and JSON outputs.
-These smoke-test results are not scientific findings. The real dataset, validated
-feature-selection strategy, statistical testing and full-scale experiments remain future work.
+**Secondary metrics:** Accuracy, precision, recall, training time in milliseconds and inference time in milliseconds per URL.
+
+**Guardrails:** Maximum average inference latency of 100 ms/URL (preliminary engineering threshold). A target minimum phishing recall of 0.80 is proposed for the full experiment, to be validated before large-scale evaluation. **The Week 6 smoke-test configuration uses recall threshold 0.0 only to verify execution; it is not a meaningful safety threshold.** The 0.80 target is not asserted as a validated production standard.
+
+**Baseline:** Logistic Regression trained using the full 16-feature URL representation on the same split as other models.
+
+## 5. Protocol and scope
+The Week 6 executable benchmark runs four models, two feature sets and three fixed-seed repetitions, and writes CSV and JSON results. The 10-row synthetic sample verifies the pipeline only; it is not suitable for scientific conclusions or statistical hypothesis testing. The same split is used across model comparisons. For the full study, use a real labeled dataset, prevent duplicate and train-test leakage, select features on training data only, and apply paired statistical comparisons across adequately sized held-out or cross-validation folds. Record hardware, OS and dependency versions for the full experiment.
