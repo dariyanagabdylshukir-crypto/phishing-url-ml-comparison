@@ -1,4 +1,4 @@
-# Methodology Passport Card — Task 2
+# Methodology Passport Card - Task 2
 
 **Title:** Comparative Evaluation of Machine Learning Models for Phishing URL Detection  
 **Authors:** Gabdylshukir Dariyana and Zhanna  
