@@ -1,0 +1,11 @@
+url,label
+https://www.wikipedia.org/wiki/Main_Page,0
+https://www.python.org/downloads/,0
+https://github.com/features,0
+https://www.openstreetmap.org/,0
+https://www.mozilla.org/firefox/,0
+http://verify-account-login.example.net/secure/update,1
+http://bank-confirm-user.example.org/signin/verify,1
+http://free-gift-claim.example.com/winner/login,1
+http://security-check-urgent.example.net/account,1
+http://payment-recovery-login.example.org/confirm,1

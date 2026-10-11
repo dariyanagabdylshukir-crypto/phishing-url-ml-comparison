@@ -1,0 +1,9 @@
+dataset: data/sample/urls.csv
+output_dir: outputs
+seed: 42
+test_size: 0.4
+feature_sets: [full, selected]
+models: [logistic_regression, random_forest, svm, xgboost]
+runs: 3
+max_inference_ms_per_url: 100
+min_phishing_recall: 0.0
