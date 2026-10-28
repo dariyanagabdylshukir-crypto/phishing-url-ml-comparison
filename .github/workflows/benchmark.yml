@@ -1,0 +1,43 @@
+
+name: Phishing URL Benchmark
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t phishing-url-benchmark .
+
+      - name: Run benchmark
+        run: |
+          mkdir -p outputs
+          docker run --rm \
+            -v "${{ github.workspace }}/outputs:/app/outputs" \
+            phishing-url-benchmark
+
+      - name: Verify generated files
+        run: |
+          test -s outputs/benchmark_results.csv
+          test -s outputs/run_metadata.json
+          echo "Benchmark completed successfully"
+          ls -lh outputs/
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: phishing-benchmark-results
+          path: |
+            outputs/benchmark_results.csv
+            outputs/run_metadata.json
+          retention-days: 7
