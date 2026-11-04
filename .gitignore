@@ -1,16 +1,31 @@
-
-.venv/
-venv/
+# ---------- Python / Jupyter runtime artifacts ----------
 __pycache__/
 *.py[cod]
 .ipynb_checkpoints/
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ---------- Virtual environments ----------
+.venv/
+venv/
+env/
+
+# ---------- Data: commit only small, reproducible files ----------
+# Full public corpus (~22 MB) is re-downloaded by src/prepare_dataset.py
+data/external/
+# Raw logs: only the benchmark log of the final run is tracked (~1.8 MB)
+data/raw/*
+!data/raw/test_run.jsonl
+# Processed data: only aggregated summaries are tracked
+data/processed/*
+!data/processed/metrics_summary.csv
+!data/processed/latency_summary.csv
+
+# ---------- Experiment outputs (Task 2 smoke test) ----------
 outputs/
-*.log
-*.tmp
-.env
-*.key
-*.pem
+
+# ---------- Model binaries and heavy dumps ----------
 *.pkl
 *.joblib
 *.onnx
@@ -18,8 +33,17 @@ outputs/
 *.pt
 *.pth
 *.h5
-data/raw/
-data/processed/
+*.parquet
+*.zip
+*.tar.gz
+
+# ---------- Misc ----------
+*.log
+*.tmp
+.env
+*.key
+*.pem
 .DS_Store
 Thumbs.db
-  
+.idea/
+.vscode/
