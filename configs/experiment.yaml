@@ -1,0 +1,15 @@
+# TASK 3 full experiment (Weeks 7-8). Task 2 smoke test still uses configs/config.yaml.
+dataset: data/sample/urls_research_sample.csv
+raw_log: data/raw/test_run.jsonl
+seed: 42
+test_size: 0.3
+repeats: 10                 # repeated stratified hold-out, seeds 42..51
+feature_sets: [full, selected]
+models: [logistic_regression, random_forest, svm, xgboost]
+batch_sizes: [1, 10, 100, 1000]   # load = URLs per inference request
+warmup_calls: 5             # cold calls, logged as phase="warmup" and discarded in analysis
+eval_calls: 20              # measured calls, logged as phase="eval"
+guardrails:
+  max_latency_ms_per_url: 100
+  min_phishing_recall: 0.80
+  max_pipeline_error_rate: 0.0
