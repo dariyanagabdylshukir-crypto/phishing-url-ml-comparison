@@ -2,7 +2,7 @@
 
 Authors: Zhanna Azatkyzy, Dariyana Gabdylshukir
 
-We compare four ML models (Logistic Regression, Random Forest, SVM, XGBoost) for detecting phishing URLs using 16 lexical features of the URL. We measure detection quality (F1-score for the phishing class) and inference time.
+We compare four ML models (Logistic Regression, Random Forest, SVM, XGBoost) using 16 lexical URL features. The broader research topic is phishing detection, but the current experiment uses a dataset labelled as benign or malicious. We therefore report F1-score for the malicious class and inference time; these results do not measure phishing-specific detection performance.
 
 ## Research questions
 
@@ -72,7 +72,7 @@ The raw log is already in the repository, so the last two steps and the notebook
 
 ## Experiment setup
 
-- Dataset: public labelled URL dataset ([faizann24/Using-machine-learning-to-detect-malicious-URLs](https://github.com/faizann24/Using-machine-learning-to-detect-malicious-URLs)), duplicates removed, stratified sample of 20 000 URLs (16% phishing).
+- Dataset: public labelled URL dataset ([faizann24/Using-machine-learning-to-detect-malicious-URLs](https://github.com/faizann24/Using-machine-learning-to-detect-malicious-URLs)), duplicates removed, stratified sample of 20 000 URLs (16.155% malicious URLs).
 - 4 models × 2 feature sets × 10 repeats (stratified 70/30 split, seeds 42–51).
 - Latency is measured for 1, 10, 100 and 1000 URLs per request. Each series has 5 warm-up calls (not used) and 20 evaluation calls.
 - Statistics: Mean ± SD, Median (p25–p75), p95, p99, 95% bootstrap CI (10 000 resamples, seed 42).
@@ -108,17 +108,17 @@ Figure 1. Latency vs load (log scale). Error bars show 95% CI of the median, the
 
 Figure 2. (a) F1 over 10 repeats, (b) latency for one URL. Diamonds show mean / median with 95% CI. [PDF](reports/figures/fig2_distribution_boxplot.pdf)
 
-**RQ1.** Random Forest (F1 = 0.64) and XGBoost (0.63) are about two times better than the baseline Logistic Regression (0.31). Their confidence intervals do not overlap with the baseline, so the difference is not random. Accuracy is 0.85–0.90 for all models, but a model that always predicts "benign" already has 0.84, so accuracy is not a good metric here.
+**RQ1.** Random Forest achieved the highest mean F1-score (0.639), followed by XGBoost (0.626), compared with the Logistic Regression baseline (0.314). These results describe the current dataset and repeated hold-out splits.
 
-**RQ2a.** With 7 features F1 decreases for every model (for example Random Forest 0.64 → 0.40), so H0 is rejected.
+**RQ2a.** The selected seven-feature set produced lower mean F1-scores for all four models. For example, Random Forest decreased from 0.639 to 0.400. No formal hypothesis test was performed, so we do not claim statistical rejection of H0.
 
-**RQ2b.** Latency changes very little (less than 0.2 ms), because most of the time goes to feature extraction. The small feature set does not give a real speed-up.
+**RQ2b.** For single-URL requests, the differences in median latency between the full and selected feature sets were below 0.2 ms. Feature extraction and prediction were timed together, so their individual contributions cannot be determined from these measurements.
 
 **RQ3.** Logistic Regression and XGBoost are the fastest (0.3–0.4 ms per URL), Random Forest is slower (4.7 ms), SVM becomes very slow for large batches (more than 100 ms for 1000 URLs). XGBoost with all features gives the best balance of quality and speed.
 
-**Guardrails.** Recall of the best model is 0.56, so no model is good enough for real use. Simple lexical features are not enough for this dataset. Next we can try class weights, a lower decision threshold or more features (for example character n-grams).
+**Guardrails.** No tested configuration met the predefined recall threshold of 0.80. The highest mean recall was 0.557 for Random Forest with all features. All configurations met the operational error-rate and single-URL p99 latency thresholds. Further experiments could evaluate class weights, decision thresholds and additional features.
 
-**Limitations.** The dataset labels malicious URLs in general, not only phishing. We used default model parameters. Latency depends on the computer, so the ranking of models is more important than exact numbers.
+**Limitations.** The dataset distinguishes benign and malicious URLs and does not provide a separate phishing label, so these results do not establish phishing-specific detection performance. Training and test sets may contain URLs from the same domains, which limits conclusions about unseen domains. Repeated hold-out splits share observations. The current latency bootstrap pools calls across repeats without accounting for their grouping. Batch size was varied, but request arrival rate (RPS) was not measured. Timing results apply to the recorded environment.
 
 ## Author contributions
 
