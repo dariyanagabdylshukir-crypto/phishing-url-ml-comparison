@@ -1,0 +1,7 @@
+New domain-grouped experiment. Never pool with previous batch results.
+Latency summaries are means of repeat-level percentiles, not pooled percentiles.
+CI resamples repeat summaries; conditional descriptive uncertainty, not a formal hypothesis test.
+Failed calls are excluded from latency quantiles and separately counted in error rates.
+Inspect actual_submission_rps and scheduler_lag_p95_ms: offered load is not guaranteed achieved load.
+Guardrails apply separately at each RPS; p99 threshold uses worst repeat.
+Low recall is a measured result, not a coding defect. Do not tune on test labels.

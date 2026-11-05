@@ -1,0 +1,180 @@
+{
+  "status": "complete",
+  "run_id": "20261105T122952Z_dbea27e6",
+  "config": {
+    "dataset": "data/sample/urls_research_sample.csv",
+    "output_root": "data/review_runs",
+    "seed": 42,
+    "repeats": 10,
+    "test_domain_fraction": 0.3,
+    "models": [
+      "logistic_regression",
+      "random_forest",
+      "svm",
+      "xgboost"
+    ],
+    "feature_sets": [
+      "full",
+      "selected"
+    ],
+    "rps_levels": [
+      50,
+      200,
+      500
+    ],
+    "requests_per_level": 1000,
+    "warmup_calls": 20,
+    "drain_timeout_s": 120,
+    "bootstrap_resamples": 2000,
+    "guardrails": {
+      "min_malicious_recall": 0.8,
+      "max_p99_ms": 100,
+      "max_error_rate": 0.0
+    }
+  },
+  "audit": {
+    "source_rows": 20000,
+    "retained_rows": 19979,
+    "excluded_rows": 21,
+    "invalid_domain_rows": 21,
+    "conflicting_urls": 0,
+    "unique_domains": 10858,
+    "class_counts": {
+      "0": 16768,
+      "1": 3211
+    },
+    "positive_class": "malicious; no phishing-specific label"
+  },
+  "dataset_sha256": "d98ae7a590cff545c51067561a6d78296532317a5e7f99864ea8180df5240079",
+  "python": "3.11.9",
+  "platform": "Windows-10-10.0.22631-SP0",
+  "processor": "Intel64 Family 6 Model 154 Stepping 4, GenuineIntel",
+  "logical_cpus": 12,
+  "packages": {
+    "numpy": "2.4.6",
+    "pandas": "3.1.1",
+    "scikit-learn": "1.9.1",
+    "xgboost": "3.2.0",
+    "tldextract": "5.4.0",
+    "threadpoolctl": "3.7.0",
+    "PyYAML": "6.0.3"
+  },
+  "source_hashes": {
+    "analyze_review.py": "084200710ccb8dddc162ab2d388ae750faf1bff0309070af26fba58789173ea7",
+    "benchmark.py": "f5f7d4170dddd73c4066e32951603e9068d0efd93d58c0508fa587be796846da",
+    "prepare_dataset.py": "12cbe50806ce39b293f821741df6214f8085fc7c7838d6a1d0551bcf66d4d69d",
+    "prepare_review_dataset.py": "507ef47ca3b5a9b82f03d06044e6414b753998dee99203d73713c8783df312c4",
+    "process_data.py": "43c7c82595698840879c8bec16f1441b36297a89f0aa41f8880c2dacd490e898",
+    "review_common.py": "9c44da06db291910ffe99b72110e689b16cb245df03bc593014d1c9346d21205",
+    "review_models.py": "612ae675cc00c43d1b6734e1416b8945aa0453f8490171df780a062aff22eb55",
+    "run_experiment.py": "239b43d2ce2cbe6ffdd8e36789affb51273c9cf2982f7f2f9621efde710ba460",
+    "run_review.py": "662a1f3711585e194526aa80501e72cfc271a4b6d2c01b8490e55ddc2c70c928",
+    "visualize.py": "5b4d408c2e318a22f8bf4f8202072082346402731e73834548368d26c8ea051a"
+  },
+  "split_method": "GroupShuffleSplit by registrable domain, private PSL suffixes included; 30% groups, row ratio may differ",
+  "timing_scope": "Local one-worker inference including feature extraction; no HTTP/network; 1 thread for numerical libraries",
+  "latency_definition": "completion minus intended arrival (scheduler lag + queue + service)",
+  "ci_scope": "Conditional on this dataset and repeated domain splits; repeats share observations",
+  "splits": [
+    {
+      "repeat": 1,
+      "seed": 42,
+      "n_train": 13845,
+      "n_test": 6134,
+      "test_row_fraction": 0.30702237349216677,
+      "shared_domains": 0,
+      "train_positive_share": 0.1633080534488985,
+      "test_positive_share": 0.15487447016628628
+    },
+    {
+      "repeat": 2,
+      "seed": 43,
+      "n_train": 14281,
+      "n_test": 5698,
+      "test_row_fraction": 0.28519945943240405,
+      "shared_domains": 0,
+      "train_positive_share": 0.15524122960576991,
+      "test_positive_share": 0.17444717444717445
+    },
+    {
+      "repeat": 3,
+      "seed": 44,
+      "n_train": 13252,
+      "n_test": 6727,
+      "test_row_fraction": 0.33670353871565145,
+      "shared_domains": 0,
+      "train_positive_share": 0.17348324781165106,
+      "test_positive_share": 0.13557306377285566
+    },
+    {
+      "repeat": 4,
+      "seed": 45,
+      "n_train": 13429,
+      "n_test": 6550,
+      "test_row_fraction": 0.3278442364482707,
+      "shared_domains": 0,
+      "train_positive_share": 0.16940948693126814,
+      "test_positive_share": 0.14290076335877863
+    },
+    {
+      "repeat": 5,
+      "seed": 46,
+      "n_train": 14531,
+      "n_test": 5448,
+      "test_row_fraction": 0.2726863206366685,
+      "shared_domains": 0,
+      "train_positive_share": 0.15855756658179065,
+      "test_positive_share": 0.16648311306901614
+    },
+    {
+      "repeat": 6,
+      "seed": 47,
+      "n_train": 14281,
+      "n_test": 5698,
+      "test_row_fraction": 0.28519945943240405,
+      "shared_domains": 0,
+      "train_positive_share": 0.1595126391709264,
+      "test_positive_share": 0.16374166374166374
+    },
+    {
+      "repeat": 7,
+      "seed": 48,
+      "n_train": 13189,
+      "n_test": 6790,
+      "test_row_fraction": 0.3398568496921768,
+      "shared_domains": 0,
+      "train_positive_share": 0.17271969065130033,
+      "test_positive_share": 0.1374079528718704
+    },
+    {
+      "repeat": 8,
+      "seed": 49,
+      "n_train": 13298,
+      "n_test": 6681,
+      "test_row_fraction": 0.3344011211772361,
+      "shared_domains": 0,
+      "train_positive_share": 0.1674687922995939,
+      "test_positive_share": 0.14728334081724292
+    },
+    {
+      "repeat": 9,
+      "seed": 50,
+      "n_train": 13487,
+      "n_test": 6492,
+      "test_row_fraction": 0.32494118824766005,
+      "shared_domains": 0,
+      "train_positive_share": 0.17253651664565878,
+      "test_positive_share": 0.1361675908810844
+    },
+    {
+      "repeat": 10,
+      "seed": 51,
+      "n_train": 14095,
+      "n_test": 5884,
+      "test_row_fraction": 0.29450923469643125,
+      "shared_domains": 0,
+      "train_positive_share": 0.15785739623980136,
+      "test_positive_share": 0.16757307953772943
+    }
+  ]
+}

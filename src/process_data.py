@@ -1,157 +1,105 @@
-"""Data processing and statistics.
-
-Input:  data/raw/test_run.jsonl
-Output: data/processed/metrics_summary.csv, data/processed/latency_summary.csv
-"""
+"""Raw-log ingestion, warm-up filtering and repeat-level statistical aggregation."""
+import gzip
 import json
 from pathlib import Path
-
 import numpy as np
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[1]
-RAW_LOG = ROOT / "data" / "raw" / "test_run.jsonl"
-OUT_DIR = ROOT / "data" / "processed"
+def mean_ci(values, b, seed):
+    values=np.asarray(values,dtype=float)
+    rng=np.random.default_rng(seed)
+    return np.quantile(rng.choice(values,(b,len(values))).mean(axis=1),[.025,.975])
 
-SEED = 42
-N_BOOT = 10000
-MODELS = ["logistic_regression", "random_forest", "svm", "xgboost"]
-NAMES = {"logistic_regression": "Logistic Regression", "random_forest": "Random Forest",
-         "svm": "SVM", "xgboost": "XGBoost"}
-BASELINE = ("logistic_regression", "full")
-
-# guardrails from the methodology
-MIN_RECALL = 0.80
-MAX_P99_MS = 100
-MAX_ERROR_RATE = 0.0
-
-
-def load_raw(path=RAW_LOG):
-    """Read the jsonl log and split records by type."""
-    with open(path, encoding="utf-8") as f:
-        rows = [json.loads(line) for line in f]
-    data = {}
-    for t in ["train", "quality", "latency"]:
-        data[t] = pd.DataFrame([r for r in rows if r["type"] == t])
-    data["meta"] = rows[0]
-    return data
+def load_raw(folder):
+    folder=Path(folder)
+    meta=json.loads((folder/'metadata.json').read_text(encoding='utf-8'))
+    if meta['status'] != 'complete': raise ValueError('Incomplete experiment')
+    plain=folder/'raw.jsonl'
+    handle=plain.open('rt',encoding='utf-8') if plain.exists() else gzip.open(folder/'raw.jsonl.gz','rt',encoding='utf-8')
+    with handle:
+        records=[json.loads(line) for line in handle if line.strip()]
+    quality=pd.DataFrame(r for r in records if r['type']=='quality')
+    calls=pd.DataFrame(r for r in records if r['type']=='request')
+    return meta, quality, calls
 
 
-def remove_warmup(latency):
-    """Keep only evaluation calls without errors (first 5 calls are warm-up)."""
-    lat = latency[(latency["phase"] == "eval") & (latency["status"] == "ok")].copy()
-    lat["ms_per_url"] = lat["latency_ms"] / lat["batch_size"]
-    return lat
+def remove_warmup(calls):
+    if not calls.phase.isin(['warmup','eval']).all(): raise ValueError('Unknown phase')
+    return calls.loc[calls.phase.eq('eval')].copy()
 
 
-def add_metrics(quality):
-    """Precision, recall, F1 and accuracy from the confusion matrix."""
-    q = quality.copy()
-    q["precision"] = q["tp"] / (q["tp"] + q["fp"])
-    q["recall"] = q["tp"] / (q["tp"] + q["fn"])
-    q["f1"] = 2 * q["tp"] / (2 * q["tp"] + q["fp"] + q["fn"])
-    q["accuracy"] = (q["tp"] + q["tn"]) / (q["tp"] + q["fp"] + q["fn"] + q["tn"])
-    return q
+def aggregate(meta, quality_records, evaluation_calls):
+    cfg=meta['config'];b=cfg['bootstrap_resamples'];seed=cfg['seed']
+    q=quality_records.copy();req=evaluation_calls.copy()
+    for timing in ['latency_ms','response_ms','service_ms','queue_ms','scheduler_lag_ms']:
+        if not np.isfinite(req[timing]).all() or (req[timing]<0).any():
+            raise ValueError('Invalid timing values')
+    if not np.allclose(req.latency_ms,req.scheduler_lag_ms+req.queue_ms+req.service_ms):
+        raise ValueError('Latency components do not add up')
+    expected=cfg['repeats']*len(cfg['models'])*len(cfg['feature_sets'])
+    if len(q)!=expected or len(req)!=expected*len(cfg['rps_levels'])*cfg['requests_per_level']:
+        raise ValueError('Missing quality records or requests')
+    counts=req.groupby(['model','feature_set','repeat','target_rps']).size()
+    if not counts.eq(cfg['requests_per_level']).all():raise ValueError('Incomplete series')
+    if not q.status.eq('ok').all():raise ValueError('Quality errors present')
+    if not all(s['shared_domains']==0 for s in meta['splits']):raise ValueError('Domain leakage')
+    for col,den in [('precision',q.tp+q.fp),('recall',q.tp+q.fn),('f1',2*q.tp+q.fp+q.fn)]:
+        numerator=2*q.tp if col=='f1' else q.tp
+        q[col]=np.divide(numerator,den,out=np.zeros(len(q)),where=den.to_numpy()!=0)
+    q['accuracy']=(q.tp+q.tn)/q.n_test
+    quality=[]
+    for (model,fs),g in q.groupby(['model','feature_set']):
+        row={'model':model,'feature_set':fs,'role':'baseline' if (model,fs)==('logistic_regression','full') else 'proposed'}
+        for metric in ['f1','recall','precision','accuracy','majority_accuracy']:
+            lo,hi=mean_ci(g[metric],b,seed)
+            row.update({metric+'_mean':g[metric].mean(),metric+'_sd':g[metric].std(),metric+'_ci_low':lo,metric+'_ci_high':hi})
+        quality.append(row)
+    quality=pd.DataFrame(quality)
+    # Compute each quantile within a repeat, then average repeat-level quantiles.
+    # CI resamples repeat-level statistics, not requests treated as independent.
+    repeat_stats=[]
+    for (model,fs,rep,rate),g in req.groupby(['model','feature_set','repeat','target_rps']):
+        ok=g[g.status.eq('ok')]
+        if ok.empty:raise ValueError('No successful calls in a series')
+        row={'model':model,'feature_set':fs,'repeat':rep,'target_rps':rate,
+             'error_rate':1-len(ok)/len(g),'n':len(g),'n_success':len(ok),
+             'actual_submission_rps':g.actual_submission_rps.iloc[0],
+             'throughput_rps':g.throughput_rps.iloc[0],
+             'scheduler_lag_p95_ms':g.scheduler_lag_ms.quantile(.95),
+             'queue_p95_ms':g.queue_ms.quantile(.95),
+             'service_p50_ms':ok.service_ms.median()}
+        for p in [50,95,99]:row[f'p{p}_ms']=ok.latency_ms.quantile(p/100)
+        repeat_stats.append(row)
+    repeat_stats=pd.DataFrame(repeat_stats)
+    latency=[]
+    for (model,fs,rate),g in repeat_stats.groupby(['model','feature_set','target_rps']):
+        row={'model':model,'feature_set':fs,'target_rps':rate,'n':int(g.n.sum())}
+        for metric in ['p50_ms','p95_ms','p99_ms','error_rate','actual_submission_rps','throughput_rps','scheduler_lag_p95_ms','queue_p95_ms','service_p50_ms']:
+            lo,hi=mean_ci(g[metric],b,seed)
+            row.update({metric:g[metric].mean(),metric+'_ci_low':lo,metric+'_ci_high':hi})
+        # Apply p99 guardrail to worst repeat, not the averaged p99.
+        row['worst_repeat_p99_ms']=g.p99_ms.max()
+        row['total_errors']=int(g.n.sum()-g.n_success.sum())
+        latency.append(row)
+    latency=pd.DataFrame(latency)
+    guard=latency.merge(quality[['model','feature_set','recall_mean']],on=['model','feature_set'])
+    guard['recall_ok']=guard.recall_mean>=cfg['guardrails']['min_malicious_recall']
+    guard['latency_ok']=guard.worst_repeat_p99_ms<=cfg['guardrails']['max_p99_ms']
+    guard['errors_ok']=guard.error_rate<=cfg['guardrails']['max_error_rate']
+    guard['passed']=guard[['recall_ok','latency_ok','errors_ok']].all(axis=1)
+    paired=q.pivot(index=['model','repeat'],columns='feature_set',values='f1')
+    if {'full','selected'} <= set(paired):
+        paired=paired.assign(selected_minus_full=paired.selected-paired.full).reset_index()
+    else: paired=pd.DataFrame()
+    return {'quality_repeats':q, 'quality_summary':quality,
+            'latency_repeats':repeat_stats,'rps_summary':latency,
+            'guardrails':guard,'paired_feature_effects':paired}
 
 
-def bootstrap_ci(values, stat=np.mean, n_boot=N_BOOT, seed=SEED):
-    """95% confidence interval by percentile bootstrap."""
-    values = np.asarray(values)
-    rng = np.random.default_rng(seed)
-    samples = rng.choice(values, size=(n_boot, len(values)), replace=True)
-    stats = stat(samples, axis=1)
-    return np.percentile(stats, 2.5), np.percentile(stats, 97.5)
-
-
-def latency_table(lat):
-    """Median, IQR, p95, p99 and 95% CI of the median for every model and load."""
-    rows = []
-    for (model, fs, bs), g in lat.groupby(["model", "feature_set", "batch_size"]):
-        v = g["latency_ms"]
-        lo, hi = bootstrap_ci(v, stat=np.median)
-        rows.append({"model": model, "feature_set": fs, "batch_size": bs, "n": len(v),
-                     "median": v.median(), "p25": v.quantile(0.25), "p75": v.quantile(0.75),
-                     "p95": v.quantile(0.95), "p99": v.quantile(0.99),
-                     "ci_low": lo, "ci_high": hi})
-    return pd.DataFrame(rows)
-
-
-def check_guardrails(q, latency_raw, lat):
-    """Error rate, recall and p99 latency (1 URL) for every configuration."""
-    rows = []
-    for (model, fs), g in q.groupby(["model", "feature_set"]):
-        calls = latency_raw[(latency_raw["model"] == model) & (latency_raw["feature_set"] == fs)]
-        errors = g["pipeline_errors"].sum() + (calls["status"] != "ok").sum()
-        one = lat[(lat["model"] == model) & (lat["feature_set"] == fs) & (lat["batch_size"] == 1)]
-        p99 = one["latency_ms"].quantile(0.99)
-        rows.append({"model": model, "feature_set": fs,
-                     "error_rate": errors / (len(g) + len(calls)),
-                     "recall": g["recall"].mean(), "p99_ms": p99,
-                     "recall_ok": g["recall"].mean() >= MIN_RECALL,
-                     "latency_ok": p99 <= MAX_P99_MS,
-                     "errors_ok": errors / (len(g) + len(calls)) <= MAX_ERROR_RATE})
-    return pd.DataFrame(rows)
-
-
-def make_summary(q, lat_tab, guard):
-    """One row per model and feature set -> metrics_summary.csv"""
-    rows = []
-    for (model, fs), g in q.groupby(["model", "feature_set"]):
-        lo, hi = bootstrap_ci(g["f1"])
-        l1 = lat_tab[(lat_tab["model"] == model) & (lat_tab["feature_set"] == fs)
-                     & (lat_tab["batch_size"] == 1)].iloc[0]
-        gr = guard[(guard["model"] == model) & (guard["feature_set"] == fs)].iloc[0]
-        rows.append({
-            "model": model, "feature_set": fs,
-            "role": "baseline" if (model, fs) == BASELINE else "proposed",
-            "f1_mean": g["f1"].mean(), "f1_sd": g["f1"].std(), "f1_ci_low": lo, "f1_ci_high": hi,
-            "f1_median": g["f1"].median(), "f1_p25": g["f1"].quantile(0.25),
-            "f1_p75": g["f1"].quantile(0.75),
-            "precision_mean": g["precision"].mean(),
-            "recall_mean": g["recall"].mean(), "recall_sd": g["recall"].std(),
-            "accuracy_mean": g["accuracy"].mean(),
-            "latency_median_ms": l1["median"], "latency_p25_ms": l1["p25"],
-            "latency_p75_ms": l1["p75"], "latency_p95_ms": l1["p95"],
-            "latency_p99_ms": l1["p99"], "latency_ci_low": l1["ci_low"],
-            "latency_ci_high": l1["ci_high"],
-            "error_rate": gr["error_rate"],
-            "guardrails_passed": bool(gr["recall_ok"] and gr["latency_ok"] and gr["errors_ok"]),
-        })
-    s = pd.DataFrame(rows)
-    s["model"] = pd.Categorical(s["model"], MODELS)
-    return s.sort_values(["feature_set", "model"]).reset_index(drop=True)
-
-
-def results_table(s):
-    """Markdown table for README."""
-    lines = ["| Model | Features | Role | F1 (Mean ± SD) | F1 95% CI | Recall (Mean ± SD) "
-             "| Latency 1 URL, ms (Median, p25–p75) | p99, ms |",
-             "|---|---|---|---|---|---|---|---|"]
-    for _, r in s.iterrows():
-        role = "**Baseline**" if r["role"] == "baseline" else "Proposed"
-        lines.append(f"| {NAMES[r['model']]} | {r['feature_set']} | {role} "
-                     f"| {r['f1_mean']:.3f} ± {r['f1_sd']:.3f} "
-                     f"| [{r['f1_ci_low']:.3f}, {r['f1_ci_high']:.3f}] "
-                     f"| {r['recall_mean']:.3f} ± {r['recall_sd']:.3f} "
-                     f"| {r['latency_median_ms']:.2f} ({r['latency_p25_ms']:.2f}–{r['latency_p75_ms']:.2f}) "
-                     f"| {r['latency_p99_ms']:.2f} |")
-    return "\n".join(lines)
-
-
-def run():
-    np.random.seed(SEED)
-    raw = load_raw()
-    q = add_metrics(raw["quality"])
-    lat = remove_warmup(raw["latency"])
-    lat_tab = latency_table(lat)
-    guard = check_guardrails(q, raw["latency"], lat)
-    summary = make_summary(q, lat_tab, guard)
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
-    summary.to_csv(OUT_DIR / "metrics_summary.csv", index=False, float_format="%.4f")
-    lat_tab.to_csv(OUT_DIR / "latency_summary.csv", index=False, float_format="%.4f")
-    return raw, q, lat, lat_tab, guard, summary
-
-
-if __name__ == "__main__":
-    *_, summary = run()
-    print(results_table(summary))
+def export_tables(tables, folder):
+    folder=Path(folder);folder.mkdir(parents=True,exist_ok=True)
+    for name, data in tables.items(): data.to_csv(folder/(name+'.csv'),index=False)
+    # Required benchmark summary: one row per model, feature set and offered rate.
+    summary=tables['quality_summary'].merge(tables['rps_summary'],on=['model','feature_set'])
+    summary.to_csv(folder/'metrics_summary.csv',index=False)
+    return summary

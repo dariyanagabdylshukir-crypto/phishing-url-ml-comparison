@@ -1,113 +1,67 @@
-"""Figures for the report.
-
-Input:  results of process_data.py
-Output: reports/figures/fig1_latency_vs_load.pdf/.png, fig2_distribution_boxplot.pdf/.png
-"""
+"""Publication exports for the completed RPS experiment."""
+from pathlib import Path
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-import numpy as np
 import seaborn as sns
-
-from process_data import MODELS, NAMES, ROOT, bootstrap_ci
-
-FIG_DIR = ROOT / "reports" / "figures"
-
-# colorblind-safe colors + different markers and line styles for b/w printing
-COLORS = dict(zip(MODELS, sns.color_palette("colorblind", 4)))
-MARKERS = dict(zip(MODELS, ["o", "s", "^", "D"]))
-LINES = dict(zip(MODELS, ["-", "--", "-.", ":"]))
-FS_TITLE = {"full": "Full feature set (16)", "selected": "Selected feature set (7)"}
+NAMES={'logistic_regression':'Logistic Regression','random_forest':'Random Forest','svm':'SVM','xgboost':'XGBoost'}
 
 
-def setup_style():
-    sns.set_theme(style="whitegrid", context="paper")
-    plt.rcParams.update({"font.size": 9, "legend.fontsize": 8, "pdf.fonttype": 42})
-
-
-def save(fig, name):
-    """Save as vector pdf and png with 300 dpi."""
-    FIG_DIR.mkdir(parents=True, exist_ok=True)
-    fig.savefig(FIG_DIR / f"{name}.pdf", bbox_inches="tight")
-    fig.savefig(FIG_DIR / f"{name}.png", dpi=300, bbox_inches="tight")
-
-
-def plot_latency_vs_load(lat_tab):
-    """Median latency vs batch size, error bars = 95% CI, band = IQR."""
-    fig, axes = plt.subplots(1, 2, figsize=(7.2, 3.2), sharey=True)
-    for ax, fs in zip(axes, ["full", "selected"]):
-        for m in MODELS:
-            d = lat_tab[(lat_tab["model"] == m) & (lat_tab["feature_set"] == fs)]
-            d = d.sort_values("batch_size")
-            ax.fill_between(d["batch_size"], d["p25"], d["p75"], color=COLORS[m], alpha=0.18)
-            ax.errorbar(d["batch_size"], d["median"],
-                        yerr=[d["median"] - d["ci_low"], d["ci_high"] - d["median"]],
-                        color=COLORS[m], marker=MARKERS[m], linestyle=LINES[m],
-                        markersize=5, capsize=3, label=NAMES[m])
-        ax.set_xscale("log")
-        ax.set_yscale("log")
-        ax.set_title(FS_TITLE[fs])
-        ax.set_xlabel("Load, batch size (URLs per request)")
-    axes[0].set_ylabel("Latency per request (ms)")
-    handles, labels = axes[0].get_legend_handles_labels()
-    handles.append(plt.Rectangle((0, 0), 1, 1, color="0.6", alpha=0.35))
-    labels.append("IQR (p25–p75)")
-    fig.legend(handles, labels, loc="lower center", ncol=5, bbox_to_anchor=(0.5, -0.16),
-               frameon=False)
-    fig.suptitle("Latency vs load (median, error bars = 95% bootstrap CI)", y=1.02)
-    return fig
-
-
-def plot_boxplots(q, lat):
-    """(a) F1 over 10 repeats, (b) latency for 1 URL. Diamonds = estimate with 95% CI."""
-    fig, axes = plt.subplots(1, 2, figsize=(7.2, 3.4))
-    fs_colors = {"full": sns.color_palette("colorblind")[4],
-                 "selected": sns.color_palette("colorblind")[5]}
-    one_url = lat[lat["batch_size"] == 1]
-    panels = [(axes[0], q, "f1", np.mean, "Phishing-class F1-score (0–1)", "(a) F1-score, 10 repeats"),
-              (axes[1], one_url, "latency_ms", np.median, "Latency for 1 URL (ms, log scale)",
-               "(b) Latency, batch = 1")]
-    for ax, data, col, stat, ylabel, title in panels:
-        sns.boxplot(data=data, x="model", y=col, hue="feature_set", order=MODELS,
-                    hue_order=["full", "selected"], palette=fs_colors, ax=ax,
-                    width=0.7, fliersize=1.5, linewidth=0.8, showfliers=(col != "f1"))
-        for patch in ax.patches[4:8]:  # hatching for the selected set (b/w printing)
-            patch.set_hatch("//")
-        if col == "f1":
-            sns.stripplot(data=data, x="model", y=col, hue="feature_set", order=MODELS,
-                          hue_order=["full", "selected"], dodge=True, ax=ax, size=2.5,
-                          palette=["0.25", "0.25"], legend=False)
+def plot_results(meta, tables, evaluation_calls, figures):
+    cfg=meta['config'];q=tables['quality_repeats'];req=evaluation_calls
+    quality=tables['quality_summary'];latency=tables['rps_summary']
+    sns.set_theme(style='whitegrid',palette='colorblind')
+    colors=dict(zip(cfg['models'],sns.color_palette('colorblind',len(cfg['models']))))
+    figures=Path(figures);figures.mkdir(parents=True,exist_ok=True)
+    mark='SMOKE TEST - NOT RESEARCH RESULTS\n' if cfg.get('smoke_only') else ''
+    fig,axes=plt.subplots(2,3,figsize=(12,7),squeeze=False)
+    for i,fs in enumerate(['full','selected']):
+        for j,p in enumerate([50,95,99]):
+            ax=axes[i,j]
+            for model in cfg['models']:
+                d=latency[(latency.model==model)&(latency.feature_set==fs)].sort_values('target_rps')
+                if d.empty:continue
+                # Draw CI endpoints directly; do not assume a percentile CI encloses its estimate.
+                ax.plot(d.target_rps,d[f'p{p}_ms'],marker=['o','s','^','D'][cfg['models'].index(model)],linestyle=['-','--','-.',':'][cfg['models'].index(model)],color=colors[model],label=NAMES[model])
+                ax.vlines(d.target_rps,d[f'p{p}_ms_ci_low'],d[f'p{p}_ms_ci_high'],color=colors[model])
+            ax.set_xlim(left=0)
+            ax.set(title=f'{fs}: mean repeat p{p}',xlabel='Offered load (requests/s)',ylabel='Scheduled-arrival latency (ms)',yscale='log')
+    handles,labels=axes[0,0].get_legend_handles_labels()
+    fig.legend(handles,labels,loc='lower center',ncol=4)
+    fig.suptitle(mark+'Local single-worker inference, one URL/request; 95% repeat-bootstrap CI')
+    fig.tight_layout(rect=[0,.06,1,.94])
+    save(fig,figures/'fig1_latency_vs_load')
+    fig,axes=plt.subplots(1,2,figsize=(11,4))
+    sns.boxplot(data=q,x='model',y='f1',hue='feature_set',order=cfg['models'],hue_order=['full','selected'],ax=axes[0],showfliers=True)
+    sns.stripplot(data=q,x='model',y='f1',hue='feature_set',order=cfg['models'],hue_order=['full','selected'],dodge=True,ax=axes[0],palette=['.2','.2'],legend=False,size=3)
+    axes[0].set(ylabel='Malicious-class F1',xlabel='Model',ylim=(0,1),title='Domain-disjoint test: repeated scores')
+    low=req[(req.target_rps==min(cfg['rps_levels']))&req.status.eq('ok')]
+    sns.boxplot(data=low,x='model',y='latency_ms',hue='feature_set',order=cfg['models'],hue_order=['full','selected'],ax=axes[1],showfliers=True,fliersize=1)
+    axes[1].set(ylabel='Scheduled-arrival latency (ms)',xlabel='Model',yscale='log',title=f'Lowest offered load: {min(cfg["rps_levels"])} RPS')
+    for ax, metric in [(axes[0], 'f1'), (axes[1], 'latency_ms')]:
+        if metric == 'f1':
+            summaries=quality
         else:
-            ax.set_yscale("log")
-        # estimate with 95% CI on top of each box
-        for i, m in enumerate(MODELS):
-            for fs, shift in [("full", -0.2), ("selected", 0.2)]:
-                v = data[(data["model"] == m) & (data["feature_set"] == fs)][col]
-                lo, hi = bootstrap_ci(v, stat=stat)
-                c = stat(v.to_numpy())
-                ax.errorbar(i + shift, c, yerr=[[c - lo], [hi - c]], fmt="D", color="black",
-                            markersize=3.5, capsize=3, zorder=5)
-        ax.set_xticks(range(4), [NAMES[m] for m in MODELS], rotation=15)
-        ax.set_xlabel("Model")
-        ax.set_ylabel(ylabel)
-        ax.set_title(title)
-        ax.get_legend().remove()
-    handles = [plt.Rectangle((0, 0), 1, 1, facecolor=fs_colors["full"], edgecolor="0.3"),
-               plt.Rectangle((0, 0), 1, 1, facecolor=fs_colors["selected"], hatch="//",
-                             edgecolor="0.3"),
-               plt.Line2D([], [], marker="D", color="black", linestyle="none")]
-    fig.legend(handles, [FS_TITLE["full"], FS_TITLE["selected"],
-                         "Mean (a) / median (b) ± 95% CI"],
-               loc="lower center", ncol=3, bbox_to_anchor=(0.5, -0.08), frameon=False)
-    fig.tight_layout()
-    return fig
+            summaries=latency[latency.target_rps.eq(min(cfg['rps_levels']))]
+        for i, model in enumerate(cfg['models']):
+            for j, fs in enumerate(['full','selected']):
+                row=summaries[(summaries.model==model)&(summaries.feature_set==fs)].iloc[0]
+                key='f1_mean' if metric=='f1' else 'p50_ms'
+                lowkey='f1_ci_low' if metric=='f1' else 'p50_ms_ci_low'
+                highkey='f1_ci_high' if metric=='f1' else 'p50_ms_ci_high'
+                x=i+(-.2 if j==0 else .2)
+                ax.vlines(x,row[lowkey],row[highkey],color='black',linewidth=2.5,zorder=9)
+                ax.scatter([x],[row[key]],marker='D',s=20,color='black',zorder=10)
+        for k, patch in enumerate(ax.patches[:2*len(cfg['models'])]):
+            if k >= len(cfg['models']): patch.set_hatch('//')
+    for ax in axes:
+        ax.set_xticks(range(len(cfg['models'])),[NAMES[m] for m in cfg['models']],rotation=20)
+        for patch in ax.patches[len(cfg['models']):2*len(cfg['models'])]:patch.set_hatch('//')
+    fig.suptitle(mark+'Full (16) and selected (7) features; baseline = Logistic Regression full')
+    fig.tight_layout();save(fig,figures/'fig2_distribution_boxplot')
+    return [figures/'fig1_latency_vs_load.png', figures/'fig2_distribution_boxplot.png']
 
+def save(fig,path):
+    fig.savefig(path.with_suffix('.png'),dpi=300,bbox_inches='tight')
+    fig.savefig(path.with_suffix('.pdf'),bbox_inches='tight');plt.close(fig)
 
-if __name__ == "__main__":
-    import matplotlib
-    matplotlib.use("Agg")
-    from process_data import run
-
-    raw, q, lat, lat_tab, guard, summary = run()
-    setup_style()
-    save(plot_latency_vs_load(lat_tab), "fig1_latency_vs_load")
-    save(plot_boxplots(q, lat), "fig2_distribution_boxplot")
-    print("saved to", FIG_DIR)

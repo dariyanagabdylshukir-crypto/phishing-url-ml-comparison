@@ -1,3 +1,31 @@
+# Task 3 methodology - completed rerun
+
+The completed run uses 19,979 URLs after excluding 21 rows whose domains could not be validated, from the original 20,000-URL sample. There are 3,211 malicious and 16,768 benign URLs, grouped into 10,858 domains. Domain validation is a selection rule and may affect representativeness.
+
+Four models and two feature sets are evaluated on ten GroupShuffleSplit partitions (seeds 42-51). Each partition holds out 30% of domain groups; the test URL fraction varies from 27.27% to 33.99%. Splits are not stratified. No registrable domain occurs in both training and test within a repeat. Private public-suffix rules are included using the offline snapshot bundled with tldextract 5.4.0. The same split is used across configurations. The seven features are predefined, without test-set feature selection.
+
+Latency uses one URL per request at scheduled arrival rates of 50, 200 and 500 requests/s. Each configuration and rate has 20 warm-up and 1,000 evaluation calls per repeat: 240,000 evaluation calls in total. A single local worker extracts features and predicts labels; numerical libraries are limited to one thread. This is not an HTTP or network service benchmark. Model training and warm-up are excluded.
+
+Latency is completion time minus intended arrival time, including scheduler lag, queueing and service time. Recorded service time includes feature extraction and prediction. Request submission rate and successful completion throughput are reported separately. The finite trials drain their queues after arrivals stop; they do not establish indefinitely sustainable capacity.
+
+Quality summaries report mean and sample SD across repeats. Latency p50, p95 and p99 are computed within each repeat, then averaged across repeats. A reported mean p99 is not a pooled-request p99. Percentile bootstrap intervals resample the ten repeat-level statistics, using 2,000 resamples and seed 42. Repeats share observations: intervals describe variability conditional on this dataset and protocol, without a formal significance test.
+
+Guardrails require mean malicious recall at least 0.80, worst repeat-level p99 at most 100 ms at the specified arrival rate, and recorded operational error rate zero. Operational errors are execution failures, not classification errors.
+
+## Variables
+
+| Type | Variables |
+|---|---|
+| Independent | Model, feature set, scheduled request rate |
+| Dependent | Malicious-class F1, precision, recall, accuracy; latency p50/p95/p99, throughput and operational error rate |
+| Controlled | Dataset, shared partition within each repeat, workload, fixed model settings, one worker, numerical thread limits and environment |
+
+## Historical Task 2 plan
+
+The original plan below is retained for traceability. Its phishing-specific hypotheses, proposed tests, timing definitions and smoke protocol do not describe the completed rerun. No formal hypothesis test was performed in the rerun.
+
+---
+
 # Methodology Passport Card - Task 2
 
 **Title:** Comparative Evaluation of Machine Learning Models for Phishing URL Detection  
