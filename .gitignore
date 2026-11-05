@@ -79,3 +79,7 @@ Thumbs.db
 !archive/task3_batch/data/raw/test_run.jsonl
 !archive/task3_batch/data/processed/metrics_summary.csv
 !archive/task3_batch/data/processed/latency_summary.csv
+
+# Final submission package and local plot backups
+/task3_final_update/
+/outputs/

@@ -70,3 +70,29 @@ The selected vector uses zero-based indices 0, 2, 3, 4, 8, 10, 11: URL length, d
 | p50, p95, p99 | Within-repeat latency percentiles; summary tables average these across repeats |
 | B | 2,000 bootstrap resamples |
 | CI | 2.5th and 97.5th percentiles of bootstrap means |
+
+## Mathematical notation
+
+| Symbol | Definition |
+|---|---|
+| $x$ | URL feature vector with 16 or 7 values |
+| $y$ | True label: malicious 1, benign 0 |
+| $p_i$ | Estimated malicious probability where provided |
+| $n$ | Training observations |
+| $L_{data}$ | Mean binary log-loss, before L2 regularisation |
+| $TP,FN$ | Correctly detected and missed malicious URLs |
+| $FP,TN$ | Incorrectly flagged and correctly classified benign URLs |
+| $F_1$ | Malicious-class harmonic mean of precision and recall |
+| $r$ | Repeat index, 1 through 10 |
+| $\lambda$ | Scheduled arrival rate: 50, 200 or 500 requests/s |
+| $a,s,u,c$ | Intended arrival, submission, service start, completion time |
+| $t=c-a$ | Scheduled-arrival latency, converted to ms |
+| $s-a,u-s,c-u$ | Scheduler lag, queue time, service time |
+| $q_{r,k}$ | Within-repeat latency percentile k |
+| $\bar q_k$ | Mean of ten repeat-level percentile estimates |
+| $B$ | 2,000 bootstrap resamples, seed 42 |
+| $CI_{95\%}$ | 2.5th and 97.5th percentiles of bootstrap means |
+
+$$\bar q_k=\frac{1}{10}\sum_{r=1}^{10}q_{r,k},\qquad CI_{95\%}=[Q_{0.025},Q_{0.975}].$$
+
+The notebook uses the complete compressed raw log. A small JSONL sample is supplied only to illustrate the raw schema.

@@ -20,6 +20,9 @@ def digest(path, compressed=False):
 
 
 def main():
+    if (ARCHIVE/'README.md').exists():
+        print('Historical results already archived. No changes made.')
+        return
     meta = json.loads((RUN/'metadata.json').read_text(encoding='utf-8'))
     if meta.get('status') != 'complete':
         raise ValueError('Expected a completed run')

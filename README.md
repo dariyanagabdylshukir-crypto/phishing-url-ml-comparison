@@ -29,18 +29,18 @@ Guardrails require mean malicious recall at least 0.80, worst repeat-level p99 a
 
 Run identifier: `20261105T122952Z_dbea27e6`. Losslessly compressed raw records (`raw.jsonl.gz`), cleaned dataset, split indices, configuration, source hashes and environment are in `data/review_runs/20261105T122952Z_dbea27e6/`.
 
-## Results and discussion
+## Results & Discussion
 
-| Model | Features | F1 mean ± SD | F1 95% CI | Mean recall |
-|---|---|---|---|---|
-| Logistic Regression | full | 0.324 ± 0.028 | [0.308, 0.340] | 0.200 |
-| Logistic Regression | selected | 0.214 ± 0.019 | [0.202, 0.225] | 0.122 |
-| Random Forest | full | 0.590 ± 0.020 | [0.578, 0.601] | 0.555 |
-| Random Forest | selected | 0.367 ± 0.015 | [0.359, 0.377] | 0.296 |
-| SVM | full | 0.393 ± 0.029 | [0.376, 0.410] | 0.255 |
-| SVM | selected | 0.276 ± 0.024 | [0.264, 0.292] | 0.165 |
-| XGBoost | full | 0.602 ± 0.018 | [0.592, 0.613] | 0.512 |
-| XGBoost | selected | 0.370 ± 0.018 | [0.360, 0.381] | 0.254 |
+| Model | Features | Role | F1 mean ± SD | F1 95% CI | Mean recall |
+|---|---|---|---|---|---|
+| Logistic Regression | full | Baseline | 0.324 ± 0.028 | [0.308, 0.340] | 0.200 |
+| Logistic Regression | selected | Proposed | 0.214 ± 0.019 | [0.202, 0.225] | 0.122 |
+| Random Forest | full | Proposed | 0.590 ± 0.020 | [0.578, 0.601] | 0.555 |
+| Random Forest | selected | Proposed | 0.367 ± 0.015 | [0.359, 0.377] | 0.296 |
+| SVM | full | Proposed | 0.393 ± 0.029 | [0.376, 0.410] | 0.255 |
+| SVM | selected | Proposed | 0.276 ± 0.024 | [0.264, 0.292] | 0.165 |
+| XGBoost | full | Proposed | 0.602 ± 0.018 | [0.592, 0.613] | 0.512 |
+| XGBoost | selected | Proposed | 0.370 ± 0.018 | [0.360, 0.381] | 0.254 |
 
 XGBoost with 16 features has the highest observed mean F1 (0.602), followed by Random Forest (0.590), SVM (0.393), and the Logistic Regression baseline (0.324). Seven features lower mean F1 for every model. The timed code calculates all 16 lexical features before selecting seven, so it does not isolate potential savings from an optimized selected-feature extractor. These comparisons are descriptive; no statistical rejection of a null hypothesis is claimed.
 
@@ -50,13 +50,13 @@ XGBoost with all features offers a useful observed F1-latency trade-off, but doe
 
 The labels distinguish malicious and benign URLs, without a separate phishing category. Domain-disjoint splitting removes domain overlap within each split, but does not guarantee independence of campaigns, URL templates or repeated splits. Timing depends on the recorded Windows environment, operating-system scheduling and local worker design. Lower median latency at a higher arrival rate is observed for some models and should not be interpreted as a general causal speedup.
 
-![Latency by arrival rate](reports/figures/fig1_latency_vs_rps.png)
+![Latency by arrival rate](reports/figures/fig1_latency_vs_load.png)
 
-Figure 1. Mean repeat-level p50/p95/p99 latency by scheduled arrival rate, with 95% bootstrap intervals. Latency axis is logarithmic. [PDF](reports/figures/fig1_latency_vs_rps.pdf).
+Figure 1. Mean repeat-level p50/p95/p99 latency by scheduled arrival rate, with 95% bootstrap intervals. Latency axis is logarithmic. [PDF](reports/figures/fig1_latency_vs_load.pdf).
 
-![F1 and latency distributions](reports/figures/fig2_distributions.png)
+![F1 and latency distributions](reports/figures/fig2_distribution_boxplot.png)
 
-Figure 2. F1 across repeats and request latency at 50 requests/s. [PDF](reports/figures/fig2_distributions.pdf).
+Figure 2. F1 across repeats and request latency at 50 requests/s. [PDF](reports/figures/fig2_distribution_boxplot.pdf).
 
 ## Reproduce
 
@@ -73,10 +73,10 @@ powershell -ExecutionPolicy Bypass -File .\RUN_REVIEW.ps1 -Full
 The short run is a smoke check and is not research evidence. Every experiment writes a new folder. To recompute statistics from the completed raw log without repeating model training or timing:
 
 ```powershell
-.\.venv\Scripts\python.exe src/analyze_review.py --run-dir data/review_runs/20261105T122952Z_dbea27e6
+.\.venv\Scripts\python.exe src/analyze_review.py --run-dir data/review_runs/20261105T122952Z_dbea27e6 --publish-root .
 ```
 
-`notebooks/01_data_analysis.ipynb` validates the saved splits and displays the current tables and figures. `data/processed/` and `reports/figures/` contain copies for convenient viewing. Raw measurements remain in the run folder as `raw.jsonl.gz`; the analyzer reads compressed or plain logs. The notebook reads published tables from `data/processed/` and figures from `reports/figures/`. Generated copies inside the run folder are ignored. The original `run_experiment.py` batch-size experiment and Task 2 Docker smoke test are historical workflows and do not reproduce these RPS results. Previous batch-size results and the superseded report are preserved under `archive/task3_batch/`. The final report awaits revision.
+`notebooks/01_data_analysis.ipynb` loads the complete raw log, filters warm-up, validates saved splits, recomputes statistics and exports tables and figures. Use Restart & Run All and save before submission; no training or timing is repeated. `data/processed/` and `reports/figures/` contain copies for convenient viewing. Raw measurements remain in the run folder as `raw.jsonl.gz`; the analyzer reads compressed or plain logs. The notebook creates published tables in `data/processed/` and figures in `reports/figures/`. Generated copies inside the run folder are ignored. The original `run_experiment.py` batch-size experiment and Task 2 Docker smoke test are historical workflows and do not reproduce these RPS results. Previous batch-size results and the superseded report are preserved under `archive/task3_batch/`. The current report is [reports/TASK3_report.pdf](reports/TASK3_report.pdf).
 
 ## Files
 
@@ -87,7 +87,7 @@ The short run is a smoke check and is not research evidence. Every experiment wr
 | `src/review_models.py` | Fixed settings for all four classifiers |
 | `src/analyze_review.py` | Metrics, intervals, guardrails and figures |
 | `configs/review.yaml` | Full protocol |
-| `docs/domain_model.md` | Labels, features, objectives and metric definitions |
+| [docs/domain_model.md](docs/domain_model.md) | Labels, features, objectives and metric definitions |
 | `docs/methodology.md` | Current protocol and historical Task 2 plan |
 
 ## Author contributions
@@ -100,7 +100,7 @@ The short run is a smoke check and is not research evidence. Every experiment wr
 | Zhanna Azatkyzy | repository upload | dataset and experiment runs, data processing, figures, Git and release |
 
 
-The table above records the original division of work. Dariyana additionally ran the revised domain-disjoint RPS experiment and reviewed the documentation and notebook. Git history records who committed each change; uploading a file alone does not establish its original authorship. Report and release completion remain pending.
+The table above records the original division of work. Dariyana additionally ran the revised domain-disjoint RPS experiment and reviewed the documentation and notebook. Git history records who committed each change; uploading a file alone does not establish its original authorship. The final report uses the revised measurements; release completion remains pending.
 
 ## License
 
@@ -108,4 +108,8 @@ MIT License, see [LICENSE](LICENSE).
 
 ## Historical workflow
 
-`archive/task3_batch/` preserves the previous batch-size outputs and superseded report. Its `src/` scripts and configuration reproduce the historical workflow, not the current RPS analysis. Task 2's `src/benchmark.py`, `configs/config.yaml`, Dockerfile and CI remain in their original locations. Current research scripts use the `review` names. The baseline dataset preparation script remains `src/prepare_dataset.py`.
+`archive/task3_batch/` preserves the previous batch-size outputs and superseded report. Its `src/` scripts and configuration reproduce the historical workflow, not the current RPS analysis. Task 2's `src/benchmark.py`, `configs/config.yaml`, Dockerfile and CI remain in their original locations. Current research scripts use the `review` names. Reusable statistical logic is in `src/process_data.py`, and plotting/export logic is in `src/visualize.py`. `src/analyze_review.py` orchestrates both. The baseline dataset preparation script remains `src/prepare_dataset.py`.
+
+The required `data/raw/test_run.jsonl` is a four-record schema sample only. All reported statistics use the complete compressed log. `data/processed/metrics_summary.csv` joins quality and latency by model, feature set and offered rate. The complete evidence folder is retained; runtime caches and uncompressed large logs remain ignored.
+
+Figure 2 black diamonds and vertical intervals indicate mean F1 and mean repeat-level median latency with 95% bootstrap CI. Boxes show dispersion.
