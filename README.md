@@ -1,132 +1,111 @@
-# Comparative Evaluation of Machine Learning Models for Phishing URL Detection
+# Comparative Evaluation of Machine Learning Models for URL Classification
 
 Authors: Zhanna Azatkyzy, Dariyana Gabdylshukir
 
-We compare four ML models (Logistic Regression, Random Forest, SVM, XGBoost) using 16 lexical URL features. The broader research topic is phishing detection, but the current experiment uses a dataset labelled as benign or malicious. We therefore report F1-score for the malicious class and inference time; these results do not measure phishing-specific detection performance.
+The broader research topic is phishing detection. This dataset supports malicious-versus-benign URL classification only.
 
 ## Research questions
 
-- **RQ1:** How does the algorithm affect the F1-score?
-- **RQ2:** How does feature selection (16 → 7 features) affect the results?
-  - RQ2a: H0: F1 does not differ between the full and selected feature sets; H1: F1 differs.
-  - RQ2b: H0: inference time does not differ between the feature sets; H1: inference time differs.
-- **RQ3:** What is the trade-off between F1-score and inference time?
+- RQ1: How does model choice affect malicious-class F1?
+- RQ2a: How does using seven instead of 16 lexical features affect F1?
+- RQ2b: How does the feature set affect latency at each scheduled request rate?
+- RQ3: What F1-latency trade-offs occur under the tested loads?
 
-Baseline: Logistic Regression with all 16 features.
+Baseline: Logistic Regression with all 16 features. Results are descriptive.
 
-## Repository structure
+## Completed experiment
 
+The completed run uses 19,979 URLs after excluding 21 rows whose domains could not be validated, from the original 20,000-URL sample. There are 3,211 malicious and 16,768 benign URLs, grouped into 10,858 domains. Domain validation is a selection rule and may affect representativeness.
+
+Four models and two feature sets are evaluated on ten GroupShuffleSplit partitions (seeds 42-51). Each partition holds out 30% of domain groups; the test URL fraction varies from 27.27% to 33.99%. Splits are not stratified. No registrable domain occurs in both training and test within a repeat. Private public-suffix rules are included using the offline snapshot bundled with tldextract 5.4.0. The same split is used across configurations. The seven features are predefined, without test-set feature selection.
+
+Latency uses one URL per request at scheduled arrival rates of 50, 200 and 500 requests/s. Each configuration and rate has 20 warm-up and 1,000 evaluation calls per repeat: 240,000 evaluation calls in total. A single local worker extracts features and predicts labels; numerical libraries are limited to one thread. This is not an HTTP or network service benchmark. Model training and warm-up are excluded.
+
+Latency is completion time minus intended arrival time, including scheduler lag, queueing and service time. Recorded service time includes feature extraction and prediction. Request submission rate and successful completion throughput are reported separately. The finite trials drain their queues after arrivals stop; they do not establish indefinitely sustainable capacity.
+
+Quality summaries report mean and sample SD across repeats. Latency p50, p95 and p99 are computed within each repeat, then averaged across repeats. A reported mean p99 is not a pooled-request p99. Percentile bootstrap intervals resample the ten repeat-level statistics, using 2,000 resamples and seed 42. Repeats share observations: intervals describe variability conditional on this dataset and protocol, without a formal significance test.
+
+Guardrails require mean malicious recall at least 0.80, worst repeat-level p99 at most 100 ms at the specified arrival rate, and recorded operational error rate zero. Operational errors are execution failures, not classification errors.
+
+Run identifier: `20261105T122952Z_dbea27e6`. Losslessly compressed raw records (`raw.jsonl.gz`), cleaned dataset, split indices, configuration, source hashes and environment are in `data/review_runs/20261105T122952Z_dbea27e6/`.
+
+## Results and discussion
+
+| Model | Features | F1 mean ± SD | F1 95% CI | Mean recall |
+|---|---|---|---|---|
+| Logistic Regression | full | 0.324 ± 0.028 | [0.308, 0.340] | 0.200 |
+| Logistic Regression | selected | 0.214 ± 0.019 | [0.202, 0.225] | 0.122 |
+| Random Forest | full | 0.590 ± 0.020 | [0.578, 0.601] | 0.555 |
+| Random Forest | selected | 0.367 ± 0.015 | [0.359, 0.377] | 0.296 |
+| SVM | full | 0.393 ± 0.029 | [0.376, 0.410] | 0.255 |
+| SVM | selected | 0.276 ± 0.024 | [0.264, 0.292] | 0.165 |
+| XGBoost | full | 0.602 ± 0.018 | [0.592, 0.613] | 0.512 |
+| XGBoost | selected | 0.370 ± 0.018 | [0.360, 0.381] | 0.254 |
+
+XGBoost with 16 features has the highest observed mean F1 (0.602), followed by Random Forest (0.590), SVM (0.393), and the Logistic Regression baseline (0.324). Seven features lower mean F1 for every model. The timed code calculates all 16 lexical features before selecting seven, so it does not isolate potential savings from an optimized selected-feature extractor. These comparisons are descriptive; no statistical rejection of a null hypothesis is claimed.
+
+Random Forest has the highest mean recall (0.555), below the predefined 0.80 threshold. No configuration passes all guardrails. All 240,000 evaluation requests complete without recorded operational errors. Random Forest fails the latency guardrail at 500 requests/s: mean repeat-level p99 is about 2.27-2.28 seconds and worst repeat-level p99 is 2.31-2.42 seconds. Queue measurements show backlog in these finite trials. All configurations pass the latency threshold at 50 and 200 requests/s; the other three models also pass at 500 requests/s.
+
+XGBoost with all features offers a useful observed F1-latency trade-off, but does not meet the recall requirement. The experiment compares fixed model settings; it does not tune decision thresholds or class weights. Any future tuning must use training/validation data and a fresh held-out evaluation, rather than optimizing these test results.
+
+The labels distinguish malicious and benign URLs, without a separate phishing category. Domain-disjoint splitting removes domain overlap within each split, but does not guarantee independence of campaigns, URL templates or repeated splits. Timing depends on the recorded Windows environment, operating-system scheduling and local worker design. Lower median latency at a higher arrival rate is observed for some models and should not be interpreted as a general causal speedup.
+
+![Latency by arrival rate](reports/figures/fig1_latency_vs_rps.png)
+
+Figure 1. Mean repeat-level p50/p95/p99 latency by scheduled arrival rate, with 95% bootstrap intervals. Latency axis is logarithmic. [PDF](reports/figures/fig1_latency_vs_rps.pdf).
+
+![F1 and latency distributions](reports/figures/fig2_distributions.png)
+
+Figure 2. F1 across repeats and request latency at 50 requests/s. [PDF](reports/figures/fig2_distributions.pdf).
+
+## Reproduce
+
+Use Python 3.11.9. The recorded environment is Windows build 22631, with 12 logical CPUs; numerical libraries use one thread. It is not a one-CPU hardware claim. Exact installed versions are captured in the run's `analysis-environment.txt` and metadata. A convenience lock is supplied in `requirements-review-lock.txt`; availability on other platforms may differ.
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements-review-lock.txt
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+powershell -ExecutionPolicy Bypass -File .\RUN_REVIEW.ps1
+# Full new experiment, only if needed:
+powershell -ExecutionPolicy Bypass -File .\RUN_REVIEW.ps1 -Full
 ```
-data/raw/test_run.jsonl            raw benchmark log (warm-up and evaluation calls)
-data/processed/metrics_summary.csv aggregated metrics
-data/sample/                       URL samples (urls_research_sample.csv - 20 000 URLs)
-docs/domain_model.md               domain model: loss functions, metrics, notation
-docs/methodology.md                methodology (Task 2)
-notebooks/01_data_analysis.ipynb   data analysis notebook
-reports/figures/                   figures (pdf + png)
-src/prepare_dataset.py             dataset download and sampling
-src/run_experiment.py              experiment, writes the raw log
-src/process_data.py                data processing and statistics
-src/visualize.py                   figures
-src/benchmark.py                   Task 2 smoke test
-configs/experiment.yaml            Task 3 experiment settings
+
+The short run is a smoke check and is not research evidence. Every experiment writes a new folder. To recompute statistics from the completed raw log without repeating model training or timing:
+
+```powershell
+.\.venv\Scripts\python.exe src/analyze_review.py --run-dir data/review_runs/20261105T122952Z_dbea27e6
 ```
 
-## How the results are produced
+`notebooks/01_data_analysis.ipynb` validates the saved splits and displays the current tables and figures. `data/processed/` and `reports/figures/` contain copies for convenient viewing. Raw measurements remain in the run folder as `raw.jsonl.gz`; the analyzer reads compressed or plain logs. The notebook reads published tables from `data/processed/` and figures from `reports/figures/`. Generated copies inside the run folder are ignored. The original `run_experiment.py` batch-size experiment and Task 2 Docker smoke test are historical workflows and do not reproduce these RPS results. Previous batch-size results and the superseded report are preserved under `archive/task3_batch/`. The final report awaits revision.
 
-```
-data/sample/urls_research_sample.csv      (src/prepare_dataset.py)
-        |  src/run_experiment.py
-        v
-data/raw/test_run.jsonl                   raw log, warm-up + eval calls
-        |  src/process_data.py            remove warm-up, metrics, median/p95/p99, bootstrap CI, guardrails
-        v
-data/processed/metrics_summary.csv        table in "Results & Discussion"
-        |  src/visualize.py
-        v
-reports/figures/fig1..., fig2...          figures (pdf + png 300 dpi)
-```
+## Files
 
-The notebook `notebooks/01_data_analysis.ipynb` runs the same steps with explanations and saved outputs.
-
-| Requirement | Where |
+| File | Purpose |
 |---|---|
-| Raw data with warm-up and evaluation runs | `data/raw/test_run.jsonl` (field `phase`) |
-| Cleaned and aggregated metrics | `data/processed/metrics_summary.csv` |
-| Warm-up filtering, median, p95, p99, 95% CI, guardrails | `src/process_data.py`, notebook sections 1–2 |
-| Figures (pdf + png 300 dpi) | `reports/figures/`, made by `src/visualize.py`, notebook section 3 |
-| Domain model (loss function, metrics, notation) | `docs/domain_model.md` |
-| Fixed random seed | seed 42 in the notebook and in `src/process_data.py`, split seeds 42–51 |
-
-## How to run
-
-```bash
-pip install -r requirements-analysis.txt
-python src/prepare_dataset.py   # download data and make a sample of 20 000 URLs
-python src/run_experiment.py    # run the experiment (~4 min)
-python src/process_data.py      # statistics -> data/processed/metrics_summary.csv
-python src/visualize.py         # figures -> reports/figures/
-```
-
-The raw log is already in the repository, so the last two steps and the notebook can be run without running the experiment again. The Task 2 Docker smoke test works as before (`docker build -t phishing-url-benchmark .`).
-
-## Experiment setup
-
-- Dataset: public labelled URL dataset ([faizann24/Using-machine-learning-to-detect-malicious-URLs](https://github.com/faizann24/Using-machine-learning-to-detect-malicious-URLs)), duplicates removed, stratified sample of 20 000 URLs (16.155% malicious URLs).
-- 4 models × 2 feature sets × 10 repeats (stratified 70/30 split, seeds 42–51).
-- Latency is measured for 1, 10, 100 and 1000 URLs per request. Each series has 5 warm-up calls (not used) and 20 evaluation calls.
-- Statistics: Mean ± SD, Median (p25–p75), p95, p99, 95% bootstrap CI (10 000 resamples, seed 42).
-- Guardrails: error rate = 0, recall ≥ 0.80, p99 latency ≤ 100 ms. In Task 2 the smoke test config had recall 0.0; now both `configs/config.yaml` and `configs/experiment.yaml` use 0.80.
-- Environment: Python 3.12, scikit-learn 1.9.1, XGBoost 3.4.1, 1 CPU.
-
-## Domain model
-
-Loss functions, metrics and notation are described in [docs/domain_model.md](docs/domain_model.md).
-
-## Results & Discussion
-
-F1 and recall: Mean ± SD over 10 repeats and 95% CI of the mean. Latency: Median (p25–p75) and p99 for one URL per request, warm-up removed.
-
-| Model | Features | Role | F1 (Mean ± SD) | F1 95% CI | Recall (Mean ± SD) | Latency 1 URL, ms (Median, p25–p75) | p99, ms |
-|---|---|---|---|---|---|---|---|
-| Logistic Regression | full | **Baseline** | 0.314 ± 0.015 | [0.305, 0.323] | 0.192 ± 0.012 | 0.33 (0.28–0.40) | 0.69 |
-| Random Forest | full | Proposed | 0.639 ± 0.011 | [0.632, 0.645] | 0.557 ± 0.010 | 4.66 (4.19–5.13) | 6.45 |
-| SVM | full | Proposed | 0.403 ± 0.020 | [0.391, 0.414] | 0.260 ± 0.016 | 0.55 (0.49–0.59) | 0.95 |
-| XGBoost | full | Proposed | 0.626 ± 0.016 | [0.616, 0.635] | 0.504 ± 0.019 | 0.40 (0.34–0.47) | 0.74 |
-| Logistic Regression | selected | Proposed | 0.226 ± 0.018 | [0.215, 0.236] | 0.129 ± 0.012 | 0.31 (0.27–0.36) | 0.63 |
-| Random Forest | selected | Proposed | 0.400 ± 0.020 | [0.389, 0.412] | 0.300 ± 0.019 | 4.49 (3.91–5.10) | 8.38 |
-| SVM | selected | Proposed | 0.287 ± 0.017 | [0.277, 0.297] | 0.171 ± 0.012 | 0.47 (0.41–0.51) | 0.76 |
-| XGBoost | selected | Proposed | 0.385 ± 0.014 | [0.377, 0.393] | 0.256 ± 0.012 | 0.40 (0.35–0.44) | 0.93 |
-
-All configurations have error rate 0 and p99 latency below 10 ms. No configuration reaches recall ≥ 0.80.
-
-![Latency vs load](reports/figures/fig1_latency_vs_load.png)
-
-Figure 1. Latency vs load (log scale). Error bars show 95% CI of the median, the band shows p25–p75. [PDF](reports/figures/fig1_latency_vs_load.pdf)
-
-![Distribution boxplot](reports/figures/fig2_distribution_boxplot.png)
-
-Figure 2. (a) F1 over 10 repeats, (b) latency for one URL. Diamonds show mean / median with 95% CI. [PDF](reports/figures/fig2_distribution_boxplot.pdf)
-
-**RQ1.** Random Forest achieved the highest mean F1-score (0.639), followed by XGBoost (0.626), compared with the Logistic Regression baseline (0.314). These results describe the current dataset and repeated hold-out splits.
-
-**RQ2a.** The selected seven-feature set produced lower mean F1-scores for all four models. For example, Random Forest decreased from 0.639 to 0.400. No formal hypothesis test was performed, so we do not claim statistical rejection of H0.
-
-**RQ2b.** For single-URL requests, the differences in median latency between the full and selected feature sets were below 0.2 ms. Feature extraction and prediction were timed together, so their individual contributions cannot be determined from these measurements.
-
-**RQ3.** Logistic Regression and XGBoost are the fastest (0.3–0.4 ms per URL), Random Forest is slower (4.7 ms), SVM becomes very slow for large batches (more than 100 ms for 1000 URLs). XGBoost with all features gives the best balance of quality and speed.
-
-**Guardrails.** No tested configuration met the predefined recall threshold of 0.80. The highest mean recall was 0.557 for Random Forest with all features. All configurations met the operational error-rate and single-URL p99 latency thresholds. Further experiments could evaluate class weights, decision thresholds and additional features.
-
-**Limitations.** The dataset distinguishes benign and malicious URLs and does not provide a separate phishing label, so these results do not establish phishing-specific detection performance. Training and test sets may contain URLs from the same domains, which limits conclusions about unseen domains. Repeated hold-out splits share observations.Latency confidence intervals use a two-stage bootstrap that resamples repeats and then calls within each sampled repeat (10,000 resamples, seed 42). These intervals describe timing variability in the recorded experiment. Batch size was varied, but request arrival rate (RPS) was not measured. Timing results apply to the recorded environment.
+| `src/run_review.py` | Domain splits, training, scheduled single-URL requests and raw records |
+| `src/review_common.py` | Dataset validation, domain grouping and lexical features |
+| `src/review_models.py` | Fixed settings for all four classifiers |
+| `src/analyze_review.py` | Metrics, intervals, guardrails and figures |
+| `configs/review.yaml` | Full protocol |
+| `docs/domain_model.md` | Labels, features, objectives and metric definitions |
+| `docs/methodology.md` | Current protocol and historical Task 2 plan |
 
 ## Author contributions
+
+
 
 | Author | Task 2 | Task 3 |
 |---|---|---|
 | Dariyana Gabdylshukir | methodology, Docker pipeline, smoke test | notebook, domain model, README results, report |
 | Zhanna Azatkyzy | repository upload | dataset and experiment runs, data processing, figures, Git and release |
 
+
+The table above records the original division of work. Dariyana additionally ran the revised domain-disjoint RPS experiment and reviewed the documentation and notebook. Git history records who committed each change; uploading a file alone does not establish its original authorship. Report and release completion remain pending.
+
 ## License
 
 MIT License, see [LICENSE](LICENSE).
+
+## Historical workflow
+
+`archive/task3_batch/` preserves the previous batch-size outputs and superseded report. Its `src/` scripts and configuration reproduce the historical workflow, not the current RPS analysis. Task 2's `src/benchmark.py`, `configs/config.yaml`, Dockerfile and CI remain in their original locations. Current research scripts use the `review` names. The baseline dataset preparation script remains `src/prepare_dataset.py`.

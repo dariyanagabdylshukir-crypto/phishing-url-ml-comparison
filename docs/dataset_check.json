@@ -1,0 +1,87 @@
+{
+  "audit": {
+    "source_rows": 20000,
+    "retained_rows": 19979,
+    "excluded_rows": 21,
+    "invalid_domain_rows": 21,
+    "conflicting_urls": 0,
+    "unique_domains": 10858,
+    "class_counts": {
+      "0": 16768,
+      "1": 3211
+    },
+    "positive_class": "malicious; no phishing-specific label"
+  },
+  "splits": [
+    {
+      "seed": 42,
+      "train": 13845,
+      "test": 6134,
+      "overlap": 0,
+      "positive_test_share": 0.15487447016628628
+    },
+    {
+      "seed": 43,
+      "train": 14281,
+      "test": 5698,
+      "overlap": 0,
+      "positive_test_share": 0.17444717444717445
+    },
+    {
+      "seed": 44,
+      "train": 13252,
+      "test": 6727,
+      "overlap": 0,
+      "positive_test_share": 0.13557306377285566
+    },
+    {
+      "seed": 45,
+      "train": 13429,
+      "test": 6550,
+      "overlap": 0,
+      "positive_test_share": 0.14290076335877863
+    },
+    {
+      "seed": 46,
+      "train": 14531,
+      "test": 5448,
+      "overlap": 0,
+      "positive_test_share": 0.16648311306901614
+    },
+    {
+      "seed": 47,
+      "train": 14281,
+      "test": 5698,
+      "overlap": 0,
+      "positive_test_share": 0.16374166374166374
+    },
+    {
+      "seed": 48,
+      "train": 13189,
+      "test": 6790,
+      "overlap": 0,
+      "positive_test_share": 0.1374079528718704
+    },
+    {
+      "seed": 49,
+      "train": 13298,
+      "test": 6681,
+      "overlap": 0,
+      "positive_test_share": 0.14728334081724292
+    },
+    {
+      "seed": 50,
+      "train": 13487,
+      "test": 6492,
+      "overlap": 0,
+      "positive_test_share": 0.1361675908810844
+    },
+    {
+      "seed": 51,
+      "train": 14095,
+      "test": 5884,
+      "overlap": 0,
+      "positive_test_share": 0.16757307953772943
+    }
+  ]
+}

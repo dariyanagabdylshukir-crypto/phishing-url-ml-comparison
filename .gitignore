@@ -47,3 +47,35 @@ outputs/
 Thumbs.db
 .idea/
 .vscode/
+
+# Local review files and temporary extracted archives
+/task3_current_files/
+/task3_full_results/
+/task3_results_update/
+/task3_revision_update/
+/APPLY_RESULTS_RU.txt
+/START_HERE_RU.txt
+/requirements-review.txt
+/data/review_smoke/
+/data/review_validation/
+
+# Keep completed experiment evidence, excluding oversized plain logs
+/data/review_runs/**/raw.jsonl
+/data/review_runs/**/figures/
+/data/review_runs/**/processed/
+
+# Current aggregated results
+!data/processed/quality_repeats.csv
+!data/processed/quality_summary.csv
+!data/processed/latency_repeats.csv
+!data/processed/rps_summary.csv
+!data/processed/guardrails.csv
+!data/processed/paired_feature_effects.csv
+!data/processed/INTERPRETATION.txt
+
+# Organized current and historical evidence
+/task3_cleanup_update/
+!data/review_runs/**/raw.jsonl.gz
+!archive/task3_batch/data/raw/test_run.jsonl
+!archive/task3_batch/data/processed/metrics_summary.csv
+!archive/task3_batch/data/processed/latency_summary.csv

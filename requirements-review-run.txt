@@ -1,0 +1,10 @@
+# Install into the existing analysis .venv. Full execution versions are recorded in metadata.json.
+numpy
+pandas
+scikit-learn
+xgboost
+tldextract==5.4.0
+threadpoolctl
+PyYAML
+matplotlib
+seaborn

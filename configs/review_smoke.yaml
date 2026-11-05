@@ -1,0 +1,17 @@
+dataset: data/sample/urls_research_sample.csv
+output_root: data/review_smoke
+seed: 42
+repeats: 2
+test_domain_fraction: 0.30
+models: [logistic_regression]
+feature_sets: [full, selected]
+rps_levels: [50, 500]
+requests_per_level: 100
+warmup_calls: 5
+drain_timeout_s: 30
+bootstrap_resamples: 100
+smoke_only: true
+guardrails:
+  min_malicious_recall: 0.80
+  max_p99_ms: 100
+  max_error_rate: 0.0

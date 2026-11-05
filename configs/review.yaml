@@ -1,0 +1,16 @@
+dataset: data/sample/urls_research_sample.csv
+output_root: data/review_runs
+seed: 42
+repeats: 10
+test_domain_fraction: 0.30
+models: [logistic_regression, random_forest, svm, xgboost]
+feature_sets: [full, selected]
+rps_levels: [50, 200, 500]
+requests_per_level: 1000
+warmup_calls: 20
+drain_timeout_s: 120
+bootstrap_resamples: 2000
+guardrails:
+  min_malicious_recall: 0.80
+  max_p99_ms: 100
+  max_error_rate: 0.0
