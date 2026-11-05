@@ -2,62 +2,95 @@
 
 ## 1. Task
 
-Each URL gets a label $y$: $y = 1$ if it is phishing, $y = 0$ if it is benign.
-From each URL we calculate 16 simple features (length, number of dots, digits, words like `login`) and put them in a vector $x$.
-The model looks at $x$ and gives the probability $p$ that the URL is phishing. If $p \geq 0.5$, the model says "phishing".
+The broader research topic is phishing detection. However, the current dataset labels URLs as malicious or benign and does not provide a separate phishing label.
+
+Each URL has a label: y = 1 for malicious and y = 0 for benign. These results therefore measure malicious-URL classification, not phishing-specific detection performance.
+
+We extract 16 lexical URL features, such as length, number of dots and digits, and the presence of words like `login`. We compare the full feature vector with a selected seven-feature vector.
+
+Each model returns a class label through its `predict` method. Logistic Regression, Random Forest and XGBoost use probability-based class decisions. The SVM uses its decision function; probability estimation is disabled. We do not apply a common probability threshold to all four models.
 
 ## 2. Loss function
 
-The baseline model (Logistic Regression) is trained by minimising the log-loss:
+The Logistic Regression baseline minimises binary log-loss with L2 regularisation:
 
 $$
-L = -\frac{1}{n}\sum_{i=1}^{n}\Big[\, y_i \log p_i + (1 - y_i)\log(1 - p_i) \,\Big]
+L_{\mathrm{data}} =
+-\frac{1}{n}\sum_{i=1}^{n}
+\left[y_i\log p_i+(1-y_i)\log(1-p_i)\right]
 $$
 
-In simple words: if the model gives a high probability to the correct answer, the loss is small; if it is confident and wrong, the loss is large. Training finds the weights that make $L$ as small as possible. (scikit-learn also adds a small L2 penalty on the weights.)
+Here, p_i is the estimated probability that URL i is malicious. Confident incorrect predictions receive a larger loss. The training objective also penalises the size of the model weights.
 
-The other models use their own standard criteria: SVM uses hinge loss, Random Forest uses Gini impurity, XGBoost uses log-loss with a penalty for tree complexity.
+SVM uses a regularised margin-based objective with hinge loss. Random Forest selects tree splits using Gini impurity. XGBoost uses a binary logistic objective with regularisation on the trees.
 
 ## 3. Metrics
 
-$$
-Precision = \frac{TP}{TP + FP} \qquad Recall = \frac{TP}{TP + FN} \qquad F_1 = \frac{2TP}{2TP + FP + FN}
-$$
-
-- Recall: what part of phishing URLs the model found.
-- Precision: what part of URLs marked as phishing are really phishing.
-- **F1** is the main metric: it combines precision and recall.
-
-**Latency** $t$ is the time of one request with $b$ URLs (feature extraction + prediction), in ms. We report the median and the percentiles $p95$, $p99$.
-
-**95% confidence interval** (bootstrap): we resample the results $B = 10\,000$ times with replacement, calculate the mean (for F1) or the median (for latency) each time, and take the 2.5% and 97.5% percentiles:
+The positive class is malicious (y = 1).
 
 $$
-CI_{95\%} = \big[\, Q_{2.5\%},\ Q_{97.5\%} \,\big]
+Precision = \frac{TP}{TP+FP}
+\qquad
+Recall = \frac{TP}{TP+FN}
+\qquad
+F_1 = \frac{2TP}{2TP+FP+FN}
 $$
 
-**Guardrails** (minimum requirements):
+- Recall: the proportion of malicious URLs correctly detected.
+- Precision: the proportion of predicted malicious URLs that are actually malicious.
+- F1-score: the harmonic mean of precision and recall, used as the main quality metric.
+
+Quality metrics are calculated separately for each of the 10 repeated stratified hold-out splits. We report the mean and sample standard deviation across repeats.
+
+### Latency
+
+Latency t is the time required to extract features and predict labels for one request containing b URLs, measured in milliseconds. It excludes model training. Warm-up calls are excluded from latency summaries.
+
+We report the median, p25, p75, p95 and p99 for each model, feature set and batch size. Batch sizes are 1, 10, 100 and 1000 URLs per request. Batch size is not request arrival rate (RPS).
+
+### Confidence intervals
+
+We use percentile bootstrap intervals with B = 10,000 resamples and seed 42.
+
+For mean F1, we resample the 10 repeat-level F1 values with replacement and calculate their mean.
+
+For median latency, we use a two-stage bootstrap. First, we sample repeats with replacement. Within each selected repeat, we sample its evaluation calls with replacement, preserving its call count. We then calculate the median of the combined sampled calls.
+
+The interval endpoints are the 2.5th and 97.5th percentiles of the bootstrap statistics:
 
 $$
-Recall \geq 0.80 \qquad p99\ latency \leq 100\ ms \qquad error\ rate = 0
+CI_{95\%} = [Q_{2.5\%}, Q_{97.5\%}]
 $$
+
+These intervals describe variability in the recorded experiment. Repeated hold-out splits share observations, so the F1 intervals do not represent results from independent datasets. No formal hypothesis test is performed.
+
+### Guardrails
+
+The predefined thresholds are:
+
+- Mean recall across repeats at least 0.80.
+- Single-URL p99 latency at most 100 ms.
+- Recorded operational error rate equal to zero.
+
+Operational errors are failures during execution, not incorrect class predictions. Meeting the operational thresholds alone does not establish detection quality.
 
 ## 4. Notation
 
 | Symbol | Meaning |
 |---|---|
-| $x$ | features of a URL (16 or 7 numbers) |
-| $y$ | true label: 1 = phishing, 0 = benign |
-| $p$ | predicted probability of phishing |
-| $n$ | number of URLs in the training set |
-| $L$ | loss function |
-| $TP$ | phishing URLs found by the model |
-| $FN$ | phishing URLs missed by the model |
-| $FP$ | benign URLs marked as phishing |
-| $TN$ | benign URLs marked as benign |
-| $F_1$ | F1-score, main metric |
-| $t$ | latency of one request, ms |
-| $b$ | batch size, URLs per request (1, 10, 100, 1000) |
-| $p95$, $p99$ | 95% / 99% of requests are faster than this time |
-| $B$ | number of bootstrap resamples (10 000) |
-| $CI_{95\%}$ | 95% confidence interval |
+| x | URL feature vector with 16 or 7 values |
+| y | True label: 1 = malicious, 0 = benign |
+| p | Estimated malicious-class probability for models that provide probabilities |
+| n | Number of training URLs |
+| L_data | Mean binary log-loss before regularisation |
+| TP | Malicious URLs correctly classified as malicious |
+| FN | Malicious URLs incorrectly classified as benign |
+| FP | Benign URLs incorrectly classified as malicious |
+| TN | Benign URLs correctly classified as benign |
+| F1 | Main classification quality metric |
+| t | Latency of one request, in milliseconds |
+| b | URLs per request: 1, 10, 100 or 1000 |
+| p25, p75 | 25th and 75th percentiles of recorded latency |
+| p95, p99 | 95th and 99th percentiles of recorded latency |
+| B | Number of bootstrap resamples: 10,000 |
+| CI | Confidence interval |
