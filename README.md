@@ -118,7 +118,7 @@ Figure 2. (a) F1 over 10 repeats, (b) latency for one URL. Diamonds show mean / 
 
 **Guardrails.** No tested configuration met the predefined recall threshold of 0.80. The highest mean recall was 0.557 for Random Forest with all features. All configurations met the operational error-rate and single-URL p99 latency thresholds. Further experiments could evaluate class weights, decision thresholds and additional features.
 
-**Limitations.** The dataset distinguishes benign and malicious URLs and does not provide a separate phishing label, so these results do not establish phishing-specific detection performance. Training and test sets may contain URLs from the same domains, which limits conclusions about unseen domains. Repeated hold-out splits share observations. The current latency bootstrap pools calls across repeats without accounting for their grouping. Batch size was varied, but request arrival rate (RPS) was not measured. Timing results apply to the recorded environment.
+**Limitations.** The dataset distinguishes benign and malicious URLs and does not provide a separate phishing label, so these results do not establish phishing-specific detection performance. Training and test sets may contain URLs from the same domains, which limits conclusions about unseen domains. Repeated hold-out splits share observations.Latency confidence intervals use a two-stage bootstrap that resamples repeats and then calls within each sampled repeat (10,000 resamples, seed 42). These intervals describe timing variability in the recorded experiment. Batch size was varied, but request arrival rate (RPS) was not measured. Timing results apply to the recorded environment.
 
 ## Author contributions
 

@@ -64,15 +64,48 @@ def bootstrap_ci(values, stat=np.mean, n_boot=N_BOOT, seed=SEED):
 
 
 def latency_table(lat):
-    """Median, IQR, p95, p99 and 95% CI of the median for every model and load."""
+    """Latency statistics with a bootstrap over repeats and calls."""
     rows = []
-    for (model, fs, bs), g in lat.groupby(["model", "feature_set", "batch_size"]):
+
+    for (model, fs, bs), g in lat.groupby(
+        ["model", "feature_set", "batch_size"]
+    ):
         v = g["latency_ms"]
-        lo, hi = bootstrap_ci(v, stat=np.median)
-        rows.append({"model": model, "feature_set": fs, "batch_size": bs, "n": len(v),
-                     "median": v.median(), "p25": v.quantile(0.25), "p75": v.quantile(0.75),
-                     "p95": v.quantile(0.95), "p99": v.quantile(0.99),
-                     "ci_low": lo, "ci_high": hi})
+        groups = [
+            part["latency_ms"].to_numpy(dtype=float)
+            for _, part in g.groupby("repeat", sort=True)
+        ]
+
+        if len(groups) < 2:
+            raise ValueError("At least two repeats are required for the CI")
+
+        rng = np.random.default_rng(SEED)
+        boot_medians = np.empty(N_BOOT)
+
+        for i in range(N_BOOT):
+            chosen = rng.integers(0, len(groups), size=len(groups))
+            sample = np.concatenate([
+                rng.choice(groups[j], size=len(groups[j]), replace=True)
+                for j in chosen
+            ])
+            boot_medians[i] = np.median(sample)
+
+        lo, hi = np.percentile(boot_medians, [2.5, 97.5])
+
+        rows.append({
+            "model": model,
+            "feature_set": fs,
+            "batch_size": bs,
+            "n": len(v),
+            "median": v.median(),
+            "p25": v.quantile(0.25),
+            "p75": v.quantile(0.75),
+            "p95": v.quantile(0.95),
+            "p99": v.quantile(0.99),
+            "ci_low": lo,
+            "ci_high": hi,
+        })
+
     return pd.DataFrame(rows)
 
 

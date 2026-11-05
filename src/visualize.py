@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 
-from process_data import MODELS, NAMES, ROOT, bootstrap_ci
+from process_data import MODELS, NAMES, ROOT, bootstrap_ci, latency_table
 
 FIG_DIR = ROOT / "reports" / "figures"
 
@@ -62,7 +62,7 @@ def plot_boxplots(q, lat):
     fs_colors = {"full": sns.color_palette("colorblind")[4],
                  "selected": sns.color_palette("colorblind")[5]}
     one_url = lat[lat["batch_size"] == 1]
-    panels = [(axes[0], q, "f1", np.mean, "Phishing-class F1-score (0–1)", "(a) F1-score, 10 repeats"),
+    panels = [(axes[0], q, "f1", np.mean, "Malicious-class F1-score (0–1)", "(a) F1-score, 10 repeats"),
               (axes[1], one_url, "latency_ms", np.median, "Latency for 1 URL (ms, log scale)",
                "(b) Latency, batch = 1")]
     for ax, data, col, stat, ylabel, title in panels:
@@ -80,11 +80,29 @@ def plot_boxplots(q, lat):
         # estimate with 95% CI on top of each box
         for i, m in enumerate(MODELS):
             for fs, shift in [("full", -0.2), ("selected", 0.2)]:
-                v = data[(data["model"] == m) & (data["feature_set"] == fs)][col]
-                lo, hi = bootstrap_ci(v, stat=stat)
+                v = data[
+                    (data["model"] == m)
+                    & (data["feature_set"] == fs)
+                ][col]
+
+                if col == "latency_ms":
+                    subset = data[
+                        (data["model"] == m)
+                        & (data["feature_set"] == fs)
+                    ]
+                    interval = latency_table(subset).iloc[0]
+                    lo = interval["ci_low"]
+                    hi = interval["ci_high"]
+                else:
+                    lo, hi = bootstrap_ci(v, stat=stat)
+
                 c = stat(v.to_numpy())
-                ax.errorbar(i + shift, c, yerr=[[c - lo], [hi - c]], fmt="D", color="black",
-                            markersize=3.5, capsize=3, zorder=5)
+                ax.errorbar(
+                    i + shift, c,
+                    yerr=[[c - lo], [hi - c]],
+                    fmt="D", color="black",
+                    markersize=3.5, capsize=3, zorder=5
+                )
         ax.set_xticks(range(4), [NAMES[m] for m in MODELS], rotation=15)
         ax.set_xlabel("Model")
         ax.set_ylabel(ylabel)
