@@ -1,7 +1,7 @@
 # Methodology Passport Card - Task 2
 
 **Title:** Comparative Evaluation of Machine Learning Models for Phishing URL Detection  
-**Authors:** Gabdylshukir Dariyana and Zhanna  
+**Authors:** Dariyana Gabdylshukir and Zhanna Azatkyzy  
 **Repository:** https://github.com/dariyanagabdylshukir-crypto/phishing-url-ml-comparison
 
 ## 1. Research type
@@ -10,7 +10,11 @@ Quantitative experimental research. Four machine learning algorithms are compare
 ## 2. Hypotheses
 **RQ1 — Model choice:** H0: The evaluated algorithms do not differ significantly in phishing-class F1-score. H1: At least one algorithm differs significantly in phishing-class F1-score.
 
-**RQ2 — Feature selection:** H0: Full and selected feature sets do not differ significantly in phishing-class F1-score or inference time. H1: The feature sets differ significantly in F1-score and/or inference time.
+**RQ2a — Feature selection, quality:** H0: Full and selected feature sets do not differ significantly in phishing-class F1-score. H1: The feature sets differ significantly in phishing-class F1-score.
+
+**RQ2b — Feature selection, efficiency:** H0: Full and selected feature sets do not differ significantly in inference time. H1: The feature sets differ significantly in inference time.
+
+*(Revised in TASK 3: the former combined RQ2 hypothesis was split into two single-outcome hypotheses.)*
 
 **RQ3 — Performance-efficiency comparison:** H0: There is no statistically significant difference between algorithms in inference time when compared under the same experimental conditions. H1: At least one algorithm has significantly different inference time. F1-score is reported alongside inference time to describe the performance-efficiency trade-off; no separate significance claim is made about a composite trade-off score.
 
@@ -26,7 +30,7 @@ Quantitative experimental research. Four machine learning algorithms are compare
 
 **Secondary metrics:** Accuracy, precision, recall, training time in milliseconds and inference time in milliseconds per URL.
 
-**Guardrails:** Maximum average inference latency of 100 ms/URL (preliminary engineering threshold). A target minimum phishing recall of 0.80 is proposed for the full experiment, to be validated before large-scale evaluation. **The Week 6 smoke-test configuration uses recall threshold 0.0 only to verify execution; it is not a meaningful safety threshold.** The 0.80 target is not asserted as a validated production standard.
+**Guardrails:** Maximum average inference latency of 100 ms/URL (preliminary engineering threshold). A target minimum phishing recall of 0.80 is proposed for the full experiment, to be validated before large-scale evaluation. **The Week 6 smoke-test configuration uses recall threshold 0.0 only to verify execution; it is not a meaningful safety threshold.** The 0.80 target is not asserted as a validated production standard. **TASK 3 update:** the full experiment (`configs/experiment.yaml`) applies the real recall guardrail of 0.80.
 
 **Baseline:** Logistic Regression trained using the full 16-feature URL representation on the same split as other models.
 
